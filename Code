@@ -1,0 +1,164 @@
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageTk
+VALID_USERS = {
+    "teacher1": "CTKArduino",
+    "teacher2": "CTKESP32",
+    "teacher3": "CTKUnoNano",
+    "teacher4": "CTKPlateS",
+    "teacher5": "CTKMegaUnion"
+}
+bg_image_original = None
+bg_label = None
+img_refs = {}
+
+def clear_window():
+    for widget in project.winfo_children():
+        widget.destroy()
+
+def process_login(username_entry, password_entry):
+    username = username_entry.get()
+    password = password_entry.get()
+
+    if username in VALID_USERS and VALID_USERS[username] == password:
+        messagebox.showinfo("Успех", f"Добро пожаловать, {username}!")
+        show_main_screen()
+    else:
+        messagebox.showerror("Ошибка", "Неверный логин или пароль")
+
+def resize_background(event):
+    global bg_image_original, bg_label
+    if not bg_image_original or not bg_label:
+        return
+    w, h = event.width, event.height
+    img = bg_image_original.resize((w, h), Image.Resampling.LANCZOS).filter(ImageFilter.GaussianBlur(6)).convert("RGBA")
+
+    overlay = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    start_y = int(h * 0.19)
+    draw.rectangle([(0, start_y), (w, start_y + 80)], fill=(30, 122, 158, 140))
+    img = Image.alpha_composite(img, overlay)
+
+    draw_text = ImageDraw.Draw(img)
+    txt = 'Центр талантов "Кемерово"'
+    try:
+        font = ImageFont.truetype("arial.ttf", 26)
+    except OSError:
+        font = ImageFont.load_default()
+
+    try:
+        box = draw_text.textbbox((0, 0), txt, font=font)
+        tw = box[2] - box[0]
+        th = box[3] - box[1]
+    except AttributeError:
+        tw, th = draw_text.textsize(txt, font=font)
+
+    draw_text.text(((w - tw) // 2, start_y + (80 - th) // 2 - 4), txt, fill=(255, 255, 255), font=font)
+    project.bg_image = ImageTk.PhotoImage(img)
+    bg_label.config(image=project.bg_image)
+
+
+def show_login_screen():
+    global bg_image_original, bg_label
+    clear_window()
+    try:
+        bg_image_original = Image.open("giant4-короткий-отрезок-адресной-rgb-ленты-подключен-проводами-к.jpg")
+        bg_label = tk.Label(project, bd=0)
+        bg_label.place(x=0, y=0, relwidth=1, relheight=1)
+        project.bind("<Configure>", resize_background)
+    except OSError:
+        pass
+
+    f = tk.Frame(project, bg="#2b2b2b", padx=40, pady=30)
+    f.place(relx=0.5, rely=0.65, anchor=tk.CENTER)
+    tk.Label(f, text="Логин:", fg="#ffffff", bg="#2b2b2b", font=("Arial", 12, "bold")).pack(anchor=tk.W)
+    ue = tk.Entry(f, font=("Arial", 14), width=28, bd=0)
+    ue.pack(pady=(5, 15))
+    tk.Label(f, text="Пароль:", fg="#ffffff", bg="#2b2b2b", font=("Arial", 12, "bold")).pack(anchor=tk.W)
+    pe = tk.Entry(f, font=("Arial", 14), width=28, show="*", bd=0)
+    pe.pack(pady=(5, 20))
+    tk.Button(f, text="Войти", font=("Arial", 12, "bold"), bg="#1e7a9e", fg="white", width=15, bd=0,command=lambda: process_login(ue, pe)).pack()
+
+def get_status(q):
+    return "Отсутствует" if q <= 0 else "Мало" if q <= 5 else "В наличии"
+
+def show_main_screen():
+    project.unbind("<Configure>")
+    clear_window()
+    project.config(bg="#1e1e24")
+
+    style = ttk.Style()
+    style.theme_use("clam")
+    style.configure("Treeview", background="#1a1a1c", foreground="#f8f8f2", fieldbackground="#1a1a1c", rowheight=45,font=("Segoe UI", 11), borderwidth=0)
+    style.configure("Treeview.Heading", background="#2e2e38", foreground="#ffffff", font=("Segoe UI", 11, "bold"),borderwidth=0)
+    style.map("Treeview", background=[("selected", "#2b5b84")])
+
+    panel = tk.Frame(project, bg="#282a36", height=60)
+    panel.pack(side=tk.TOP, fill=tk.X, padx=15, pady=(15, 5))
+    panel.pack_propagate(False)
+
+    def add_item():
+        aw = tk.Toplevel(project)
+        aw.title("Добавить")
+        aw.geometry("400x350")
+        aw.config(bg="#282a36")
+        aw.grab_set()
+        tk.Label(aw, text="ID / Название / Кол-во:", fg="#f8f8f2", bg="#282a36", font=11).pack(pady=10)
+        e1, e2, e3 = tk.Entry(aw, width=30), tk.Entry(aw, width=30), tk.Entry(aw, width=30)
+        for e in (e1, e2, e3):
+            e.pack(pady=5)
+        e3.insert(0, "0")
+        path_var = tk.StringVar()
+
+        tk.Button(aw, text="🖼 Выбрать картинку", bg="#44475a", fg="white", bd=0,command=lambda: path_var.set(filedialog.askopenfilename())).pack(pady=10)
+
+        def save():
+            try:
+                q = int(e3.get())
+                try:
+                    img = Image.open(path_var.get()).resize((32, 32))
+                except (OSError, AttributeError):
+                    img = Image.new("RGBA", (32, 32), "#6272a4")
+                tk_img = ImageTk.PhotoImage(img)
+                rid = f"r_{e1.get()}_{len(img_refs)}"
+                img_refs[rid] = tk_img
+                tree.insert("", tk.END, iid=rid, image=tk_img, values=(e1.get(), e2.get(), str(q), get_status(q)))
+                aw.destroy()
+            except ValueError:
+                messagebox.showerror("Ошибка", "Неверные данные")
+
+        tk.Button(aw, text="Сохранить", bg="#50fa7b", fg="#121214", font="bold", command=save).pack(pady=15)
+    tk.Button(panel, text="➕ Добавить деталь", font=("Segoe UI", 11, "bold"), bg="#50fa7b", fg="#121214", bd=0,command=add_item).pack(side=tk.LEFT, padx=10, pady=10)
+    tk.Button(panel, text="❌ Удалить", font=("Segoe UI", 11, "bold"), bg="#ff5555", fg="white", bd=0,command=lambda: [tree.delete(item) for item in tree.selection()]).pack(side=tk.LEFT, pady=10)
+    tk.Button(panel, text="🚪 Выйти", font=("Segoe UI", 10, "bold"), bg="#44475a", fg="white", bd=0,command=show_login_screen).pack(side=tk.RIGHT, padx=10, pady=10)
+    wf = tk.Frame(project, bg="#1e1e24")
+    wf.pack(fill=tk.BOTH, expand=True, padx=15, pady=(5, 15))
+    tree = ttk.Treeview(wf, columns=("id", "name", "qty", "stat"), show="tree headings", style="Treeview")
+    tree.column("#0", width=55, stretch=tk.NO, anchor=tk.CENTER)
+    tree.heading("#0", text="ФОТО")
+    for c, w, h in [("id", 90, "ID"), ("name", 340, "НАЗВАНИЕ"), ("qty", 120, "КОЛ-ВО"), ("stat", 160, "СТАТУС")]:
+        tree.column(c, width=w, anchor=tk.CENTER if c != "name" else tk.W)
+        tree.heading(c, text=h)
+    tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+    ep = tk.Frame(wf, bg="#282a36", width=180)
+    ep.pack(side=tk.RIGHT, fill=tk.Y, padx=(15, 0))
+    ep.pack_propagate(False)
+    tk.Label(ep, text="КОЛИЧЕСТВО", font=("Segoe UI", 11, "bold"), fg="#f8f8f2", bg="#282a36").pack(pady=20)
+    def change_q(amt) :
+        sel = tree.selection()
+        if not sel :
+            return
+        item_id = sel[0]
+        v = list(tree.item(item_id, "values"))
+        nq = max(0, int(v[2]) + amt)
+        v[2] = str(nq)
+        v[3] = get_status(nq)
+        tree.item(item_id, values=v)
+    tk.Button(ep, text="➕ Добавить (+1)", font="bold", bg="#44475a", fg="#50fa7b", bd=0, height=2,command=lambda : change_q(1)).pack(fill=tk.X, padx=10, pady=5)
+    tk.Button(ep, text="➖ Уменьшить (-1)", font="bold", bg="#44475a", fg="#ff5555", bd=0, height=2,command=lambda : change_q(-1)).pack(fill=tk.X, padx=10, pady=5)
+
+project = tk.Tk()
+project.title("Контроль за деталями")
+project.geometry("1024x729")
+show_login_screen()
+project.mainloop()
