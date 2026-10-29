@@ -97,37 +97,65 @@ def show_main_screen():
     panel.pack(side=tk.TOP, fill=tk.X, padx=15, pady=(15, 5))
     panel.pack_propagate(False)
 
-    def add_item():
+    def add_item() :
         aw = tk.Toplevel(project)
         aw.title("Добавить")
-        aw.geometry("400x350")
+        aw.geometry("400x380")
         aw.config(bg="#282a36")
         aw.grab_set()
-        tk.Label(aw, text="ID / Название / Кол-во:", fg="#f8f8f2", bg="#282a36", font=11).pack(pady=10)
-        e1, e2, e3 = tk.Entry(aw, width=30), tk.Entry(aw, width=30), tk.Entry(aw, width=30)
-        for e in (e1, e2, e3):
-            e.pack(pady=5)
+
+        def on_focus_in(event, entry, placeholder_text) :
+            if entry.get() == placeholder_text :
+                entry.delete(0, tk.END)
+                entry.config(fg="#f8f8f2")
+
+        def on_focus_out(event, entry, placeholder_text) :
+            if entry.get() == "" :
+                entry.insert(0, placeholder_text)
+                entry.config(fg="#6272a4")
+
+        tk.Label(aw, text="ID / Название / Кол-во:", fg="#f8f8f2", bg="#282a36", font=("Segoe UI", 12, "bold")).pack(
+            pady=10)
+
+        e1 = tk.Entry(aw, width=32, bg="#44475a", fg="#6272a4", font=("Segoe UI", 11), bd=0, insertbackground="white")
+        e2 = tk.Entry(aw, width=32, bg="#44475a", fg="#6272a4", font=("Segoe UI", 11), bd=0, insertbackground="white")
+        e3 = tk.Entry(aw, width=32, bg="#44475a", fg="#f8f8f2", font=("Segoe UI", 11), bd=0, insertbackground="white")
+        e1.insert(0, "Введите id")
+        e2.insert(0, "Введите название")
         e3.insert(0, "0")
+
+        e1.bind("<FocusIn>", lambda event : on_focus_in(event, e1, "Введите id"))
+        e1.bind("<FocusOut>", lambda event : on_focus_out(event, e1, "Введите id"))
+        e2.bind("<FocusIn>", lambda event : on_focus_in(event, e2, "Введите название"))
+        e2.bind("<FocusOut>", lambda event : on_focus_out(event, e2, "Введите название"))
+
+        for e in (e1, e2, e3) :
+            e.pack(pady=6, ipady=4)
         path_var = tk.StringVar()
-
-        tk.Button(aw, text="🖼 Выбрать картинку", bg="#44475a", fg="white", bd=0,command=lambda: path_var.set(filedialog.askopenfilename())).pack(pady=10)
-
-        def save():
-            try:
+        tk.Button(aw, text="🖼 Выбрать картинку", font=("Segoe UI", 10), bg="#44475a", fg="white", bd=0, height=2,width=22,command=lambda : path_var.set(filedialog.askopenfilename())).pack(pady=12)
+        def save() :
+            try :
+                name_val = e2.get()
+                id_val = e1.get()
+                if id_val == "Введите id" or id_val.strip() == "" :
+                    messagebox.showerror("Ошибка", "Заполните поле ID")
+                    return
+                if name_val == "Введите название" or name_val.strip() == "" :
+                    name_val = "Без названия"
                 q = int(e3.get())
-                try:
+                try :
                     img = Image.open(path_var.get()).resize((32, 32))
-                except (OSError, AttributeError):
+                except (OSError, AttributeError) :
                     img = Image.new("RGBA", (32, 32), "#6272a4")
                 tk_img = ImageTk.PhotoImage(img)
-                rid = f"r_{e1.get()}_{len(img_refs)}"
+                rid = f"r_{id_val}_{len(img_refs)}"
                 img_refs[rid] = tk_img
-                tree.insert("", tk.END, iid=rid, image=tk_img, values=(e1.get(), e2.get(), str(q), get_status(q)))
+                tree.insert("", tk.END, iid=rid, image=tk_img, values=(id_val, name_val, str(q), get_status(q)))
                 aw.destroy()
-            except ValueError:
-                messagebox.showerror("Ошибка", "Неверные данные")
+            except ValueError :
+                messagebox.showerror("Ошибка", "Количество должно быть числом")
+        tk.Button(aw, text="Сохранить", bg="#50fa7b", fg="#121214", font=("Segoe UI", 11, "bold"), width=15, bd=0,height=2, command=save).pack(pady=10)
 
-        tk.Button(aw, text="Сохранить", bg="#50fa7b", fg="#121214", font="bold", command=save).pack(pady=15)
     tk.Button(panel, text="➕ Добавить деталь", font=("Segoe UI", 11, "bold"), bg="#50fa7b", fg="#121214", bd=0,command=add_item).pack(side=tk.LEFT, padx=10, pady=10)
     tk.Button(panel, text="❌ Удалить", font=("Segoe UI", 11, "bold"), bg="#ff5555", fg="white", bd=0,command=lambda: [tree.delete(item) for item in tree.selection()]).pack(side=tk.LEFT, pady=10)
     tk.Button(panel, text="🚪 Выйти", font=("Segoe UI", 10, "bold"), bg="#44475a", fg="white", bd=0,command=show_login_screen).pack(side=tk.RIGHT, padx=10, pady=10)
